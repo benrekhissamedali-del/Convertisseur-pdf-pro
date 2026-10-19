@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#060a14">
+<title>Télécommande Smart TV</title>
+<style>
+:root{
+  --bg:#05080f; --bg2:#0a1022; --panel:#0c1429; --edge:#1a2644; --edge-hi:#2b3d6b;
+  --ink:#dfe8ff; --ink-dim:#7d8db5; --accent:#7fd8ff; --warm:#f5b45a; --danger:#ff5a6e;
+  --key-top:#1a2542; --key-bot:#0e1630;
+  --r:18px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{
+  background:
+    radial-gradient(900px 500px at 15% -10%,#14225a55,transparent 60%),
+    radial-gradient(700px 500px at 100% 110%,#0b3a5a44,transparent 60%),
+    var(--bg);
+  min-height:100dvh;display:flex;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
+}
+.stage{display:flex;gap:40px;align-items:flex-start;justify-content:center;flex-wrap:wrap;width:100%;max-width:980px}
+
+/* ───────── Écran de simulation ───────── */
+.tvwrap{flex:1 1 420px;max-width:560px;min-width:min(100%,300px);position:sticky;top:16px}
+.tv{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;
+  border:1px solid var(--edge);box-shadow:0 30px 80px #000a,0 0 0 6px #070c1a,0 0 60px #2a6bff1a}
+.tv-bg{position:absolute;inset:0;transition:opacity .5s;opacity:0;
+  background:radial-gradient(120% 90% at 30% 20%,var(--tvc1,#1b3a8a),var(--tvc2,#050a1c) 70%)}
+.tv[data-mode="tv"] .tv-bg,.tv[data-mode="app"] .tv-bg,.tv[data-mode="hdmi"] .tv-bg,.tv[data-mode="home"] .tv-bg{opacity:1}
+.tv-content{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px}
+.tv[data-mode="off"] .tv-content,.tv[data-mode="off"] .osd{opacity:0}
+.big{font-size:clamp(34px,8vw,64px);font-weight:200;letter-spacing:.04em}
+.sub{font-size:clamp(11px,2.2vw,14px);letter-spacing:.22em;text-transform:uppercase;color:#cfe0ffb0}
+.tiles{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.tile{width:clamp(64px,15vw,92px);aspect-ratio:1.4;border-radius:10px;display:grid;place-items:center;font-size:clamp(9px,1.8vw,12px);
+  font-weight:700;letter-spacing:.06em;color:#fff;background:var(--c);opacity:.55;transition:.15s;border:2px solid transparent}
+.tile.sel{opacity:1;transform:scale(1.12);border-color:#fff;box-shadow:0 10px 30px #0008}
+.progress{width:70%;height:3px;border-radius:3px;background:#ffffff25;overflow:hidden;margin-top:10px}
+.progress i{display:block;height:100%;width:var(--p,0%);background:#fff}
+.osd{position:absolute;transition:opacity .25s;pointer-events:none}
+.osd-top{top:10px;left:14px;font-size:12px;letter-spacing:.18em;color:#fff;text-shadow:0 1px 6px #000;opacity:0}
+.osd-vol{bottom:14px;left:50%;transform:translateX(-50%);width:62%;display:flex;align-items:center;gap:10px;
+  background:#050a18cc;border:1px solid #ffffff22;border-radius:30px;padding:8px 14px;opacity:0;backdrop-filter:blur(6px)}
+.osd-vol svg{width:18px;height:18px;flex:none;fill:#fff}
+.osd-vol .bar{flex:1;height:5px;border-radius:5px;background:#ffffff25;overflow:hidden}
+.osd-vol .bar i{display:block;height:100%;background:var(--accent);width:var(--v,0%);transition:width .08s}
+.osd-vol b{font-size:12px;min-width:2ch;text-align:right;font-variant-numeric:tabular-nums}
+.osd-toast{top:10px;right:14px;font-size:12px;letter-spacing:.14em;background:#050a18cc;padding:6px 12px;border-radius:20px;
+  border:1px solid #ffffff22;opacity:0}
+.osd.show{opacity:1}
+.tvmeta{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--ink-dim);font-size:12px;letter-spacing:.08em}
+.tvmeta .sw{display:flex;gap:8px}
+.pill{border:1px solid var(--edge);background:#0a1226;color:var(--ink-dim);border-radius:30px;padding:7px 13px;font:inherit;font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.pill[aria-pressed="true"]{color:var(--accent);border-color:#2f6d8c;background:#0c1d33}
+.note{margin-top:10px;font-size:11px;color:var(--ink-dim);line-height:1.5}
+
+/* ───────── Télécommande ───────── */
+.remote{width:min(100%,360px);flex:0 0 auto;border-radius:44px;padding:22px 20px 26px;position:relative;
+  background:linear-gradient(165deg,#111a35 0%,#0a1124 45%,#070c1b 100%);
+  border:1px solid var(--edge);
+  box-shadow:inset 0 1px 0 #ffffff14,inset 0 -30px 60px #00000055,0 40px 90px #000c,0 0 0 1px #000;
+  display:flex;flex-direction:column;gap:20px}
+.remote::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(115deg,#ffffff0d 0%,transparent 30%,transparent 70%,#7fd8ff0a 100%)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.label{font-size:9.5px;letter-spacing:.28em;color:var(--ink-dim);text-transform:uppercase;text-align:center}
+
+.key{appearance:none;border:0;cursor:pointer;color:var(--ink);font:inherit;position:relative;
+  display:grid;place-items:center;
+  background:linear-gradient(180deg,var(--key-top),var(--key-bot));
+  border-radius:var(--r);min-height:46px;
+  box-shadow:inset 0 1px 0 #ffffff1c,inset 0 -2px 0 #0006,0 6px 12px #0009,0 1px 0 #000;
+  transition:transform .07s ease,box-shadow .12s ease,filter .12s;outline:none}
+.key svg{width:22px;height:22px;fill:currentColor;pointer-events:none}
+.key.down,.key:active{transform:translateY(2px) scale(.955);
+  box-shadow:inset 0 2px 8px #000b,0 0 0 1px var(--glow,var(--accent)),0 0 22px var(--glow,var(--accent))55;filter:brightness(1.25)}
+.key:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.key.round{border-radius:50%;width:54px;height:54px;min-height:0}
+.key.power{--glow:var(--danger);color:var(--danger)}
+.key.on{color:var(--warm);--glow:var(--warm)}
+
+/* sélecteur d'entrées */
+.inputs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.inputs .key{min-height:38px;font-size:11px;font-weight:700;letter-spacing:.06em;border-radius:12px;color:var(--ink-dim)}
+.inputs .key.active{color:var(--accent);--glow:var(--accent);box-shadow:inset 0 1px 0 #ffffff1c,0 0 0 1px #2f6d8c,0 0 18px #7fd8ff33}
+
+/* D-pad */
+.dpad{width:230px;height:230px;margin:0 auto;position:relative;filter:drop-shadow(0 14px 22px #000a)}
+.dpad svg{width:100%;height:100%;overflow:visible}
+.dpad .seg{fill:url(#segGrad);stroke:#0006;stroke-width:1.2;cursor:pointer;transition:fill .1s,filter .1s}
+.dpad .seg.down{fill:#26407a;filter:drop-shadow(0 0 8px var(--accent))}
+.dpad .arrow{fill:var(--ink-dim);pointer-events:none;transition:fill .1s}
+.dpad .down + .arrow,.dpad .seg.down ~ .arrow{fill:var(--accent)}
+.dpad .ok{fill:url(#okGrad);stroke:#ffffff22;stroke-width:1;cursor:pointer;transition:filter .1s,transform .07s;transform-origin:115px 115px}
+.dpad .ok.down{filter:drop-shadow(0 0 14px var(--warm)) brightness(1.25);transform:scale(.95)}
+.dpad .oktxt{fill:#2a1a00;font-weight:800;font-size:15px;letter-spacing:.14em;pointer-events:none}
+
+/* navigation */
+.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;justify-items:center}
+
+/* rocker */
+.rockers{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rocker{display:flex;flex-direction:column;width:70px;border-radius:36px;overflow:hidden;
+  box-shadow:0 8px 16px #000a,0 0 0 1px #000,inset 0 1px 0 #ffffff1c;background:linear-gradient(180deg,#1b2850,#0c1431)}
+.rocker .key{border-radius:0;box-shadow:none;background:none;min-height:56px;font-size:22px;font-weight:300}
+.rocker .key.down{background:#23386d;box-shadow:inset 0 0 22px #7fd8ff44;transform:none;filter:none}
+.rocker .mid{text-align:center;font-size:9px;letter-spacing:.22em;color:var(--ink-dim);padding:6px 0;border-block:1px solid #ffffff10;
+  background:#060b1a}
+.center-col{display:flex;flex-direction:column;align-items:center;gap:10px}
+.rocker .key svg{width:20px;height:20px}
+
+/* streaming */
+.apps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.app{min-height:50px;font-weight:800;letter-spacing:.04em;font-size:13px;color:#fff;border-radius:14px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--c) 90%,#fff 0%),color-mix(in srgb,var(--c) 55%,#000));
+  --glow:var(--c);gap:6px;grid-auto-flow:column;justify-content:center}
+.app svg{width:18px;height:18px}
+.app.prime{font-weight:700;text-transform:lowercase;font-size:14px}
+
+/* médias */
+.media{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.media .key{min-height:52px;border-radius:14px}
+.media .key.play{--glow:#5dffa6;color:#5dffa6}
+.media .key.active{color:var(--accent);--glow:var(--accent)}
+
+/* pavé numérique escamotable */
+.drawer-toggle{width:100%;min-height:42px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;grid-auto-flow:column;gap:10px;color:var(--ink-dim)}
+.drawer-toggle svg{width:16px;height:16px;transition:transform .35s}
+.drawer-toggle[aria-expanded="true"] svg{transform:rotate(180deg)}
+.drawer{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s cubic-bezier(.3,.9,.3,1)}
+.drawer.open{grid-template-rows:1fr}
+.drawer > div{overflow:hidden;min-height:0}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 2px 2px;opacity:0;transform:translateY(-10px);transition:.35s}
+.drawer.open .numpad{opacity:1;transform:none}
+.numpad .key{min-height:50px;font-size:20px;font-weight:300}
+.numpad .key small{font-size:8px;letter-spacing:.14em;color:var(--ink-dim);display:block;margin-top:-2px}
+
+.pulse{animation:pulse .5s ease-out}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #7fd8ff88}100%{box-shadow:0 0 0 22px #7fd8ff00}}
+@media (max-width:820px){.tvwrap{position:static;order:-1;max-width:360px;flex-basis:100%}.stage{gap:20px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M11 2h2v10h-2z"/><path d="M6.3 5.6l1.4 1.5a7 7 0 1 0 8.6 0l1.4-1.5a9 9 0 1 1-11.4 0z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M10 5 3 12l7 7v-4.5c5 0 8 1 10 5 0-6-3-10-10-10.5z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z"/><path d="M16 9.4 17.4 8l2.6 2.6L22.6 8 24 9.4 21.4 12l2.6 2.6-1.4 1.4-2.6-2.6-2.6 2.6-1.4-1.4 2.6-2.6z" transform="translate(-2 0)"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9z"/><path d="M15 8.5a5 5 0 0 1 0 7l1.4 1.4a7 7 0 0 0 0-9.8z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></symbol>
+    <symbol id="i-ff" viewBox="0 0 24 24"><path d="M3 5v14l9-7zm9 0v14l9-7z"/></symbol>
+    <symbol id="i-rew" viewBox="0 0 24 24"><path d="M21 5v14l-9-7zm-9 0v14l-9-7z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M4 11h16v2H4z"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m12 6 8 10H4z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m12 18-8-10h16z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6-1.4-1.4L12 12.2 7.4 7.6z"/></symbol>
+    <symbol id="i-yt" viewBox="0 0 24 24"><path d="M21.6 7.2a2.5 2.5 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.200 0-7.800.4A2.500 2.500 0 0 0 2.400 7.200C2 8.800 2 12 2 12s0 3.200.4 4.800a2.500 2.500 0 0 0 1.800 1.800C5.800 19 12 19 12 19s6.200 0 7.800-.4a2.500 2.500 0 0 0 1.800-1.800c.4-1.600.4-4.800.4-4.800s0-3.200-.4-4.800zM10 15V9l5.200 3z"/></symbol>
+    <symbol id="i-spot" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.600 14.400a.6.6 0 0 1-.9.2c-2.400-1.500-5.400-1.800-8.900-1a.6.6 0 1 1-.3-1.200c3.800-.9 7.200-.5 9.800 1.100.3.200.4.600.3.900zm1.200-2.700a.8.800 0 0 1-1.100.3c-2.700-1.700-6.800-2.200-10-1.200a.8.800 0 1 1-.5-1.500c3.600-1.100 8.200-.6 11.300 1.300.4.200.5.700.3 1.100zm.1-2.800C14.700 9 9.500 8.800 6.500 9.700a1 1 0 1 1-.6-1.900c3.500-1 9.200-.9 12.800 1.300a1 1 0 0 1-.8 1.800z"/></symbol>
+    <symbol id="i-nf" viewBox="0 0 24 24"><path d="M6 2h4l4 11V2h4v20h-4L10 11v11H6z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 10h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4zM4 16h4v4H4zm6 0h4v4h-4zm6 0h4v4h-4z"/></symbol>
+  </defs>
+</svg>
+
+<main class="stage">
+
+  <!-- ÉCRAN DE SIMULATION -->
+  <section class="tvwrap" aria-label="Écran de simulation">
+    <div class="tv" id="tv" data-mode="off" aria-live="polite">
+      <div class="tv-bg"></div>
+      <div class="tv-content" id="tvContent"></div>
+      <div class="osd osd-top" id="osdTop"></div>
+      <div class="osd osd-toast" id="osdToast"></div>
+      <div class="osd osd-vol" id="osdVol">
+        <svg viewBox="0 0 24 24"><use href="#i-vol" id="osdVolIcon"/></svg>
+        <div class="bar"><i id="osdVolBar"></i></div><b id="osdVolNum">0</b>
+      </div>
+    </div>
+    <div class="tvmeta">
+      <span id="statusLine">Veille</span>
+      <span class="sw">
+        <button class="pill" id="hapticSw" aria-pressed="true">Vibration</button>
+        <button class="pill" id="soundSw" aria-pressed="true">Son</button>
+      </span>
+    </div>
+    <p class="note" id="hapticNote"></p>
+  </section>
+
+  <!-- TÉLÉCOMMANDE -->
+  <section class="remote" id="remote" aria-label="Télécommande">
+
+    <div class="row">
+      <button class="key round power" data-cmd="POWER" aria-label="Marche / Veille"><svg><use href="#i-power"/></svg></button>
+      <div class="label">Smart TV &amp; Box</div>
+      <span style="width:54px"></span>
+    </div>
+
+    <div>
+      <div class="inputs" role="group" aria-label="Entrées">
+        <button class="key" data-cmd="INPUT_TV">TV</button>
+        <button class="key" data-cmd="INPUT_HDMI1">HDMI 1</button>
+        <button class="key" data-cmd="INPUT_HDMI2">HDMI 2</button>
+        <button class="key" data-cmd="INPUT_HDMI3">HDMI 3</button>
+      </div>
+    </div>
+
+    <div class="dpad">
+      <svg viewBox="0 0 230 230" id="dpadSvg" role="group" aria-label="Pavé directionnel">
+        <defs>
+          <radialGradient id="segGrad" cx="50%" cy="50%" r="55%"><stop offset="45%" stop-color="#101a38"/><stop offset="100%" stop-color="#1d2b54"/></radialGradient>
+          <radialGradient id="okGrad" cx="40%" cy="30%" r="80%"><stop offset="0%" stop-color="#ffd48a"/><stop offset="100%" stop-color="#e08a1e"/></radialGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <div class="nav">
+      <button class="key" data-cmd="BACK" aria-label="Retour"><svg><use href="#i-back"/></svg></button>
+      <button class="key" data-cmd="HOME" aria-label="Accueil"><svg><use href="#i-home"/></svg></button>
+      <button class="key" data-cmd="MENU" aria-label="Menu"><svg><use href="#i-menu"/></svg></button>
+    </div>
+
+    <div class="rockers">
+      <div class="rocker" role="group" aria-label="Volume">
+        <button class="key" data-cmd="VOL_UP" aria-label="Volume +"><svg><use href="#i-plus"/></svg></button>
+        <div class="mid">VOL</div>
+        <button class="key" data-cmd="VOL_DOWN" aria-label="Volume -"><svg><use href="#i-minus"/></svg></button>
+      </div>
+      <div class="center-col">
+        <button class="key round" data-cmd="MUTE" id="muteKey" aria-label="Muet"><svg><use href="#i-mute"/></svg></button>
+        <div class="label">Muet</div>
+      </div>
+      <div class="rocker" role="group" aria-label="Chaîne">
+        <button class="key" data-cmd="CH_UP" aria-label="Chaîne +"><svg><use href="#i-up"/></svg></button>
+        <div class="mid">CH</div>
+        <button class="key" data-cmd="CH_DOWN" aria-label="Chaîne -"><svg><use href="#i-down"/></svg></button>
+      </div>
+    </div>
+
+    <div>
+      <div class="label" style="margin-bottom:10px">Streaming</div>
+      <div class="apps">
+        <button class="key app" style="--c:#e50914" data-cmd="APP_NETFLIX"><svg><use href="#i-nf"/></svg>NETFLIX</button>
+        <button class="key app" style="--c:#ff1a1a" data-cmd="APP_YOUTUBE"><svg><use href="#i-yt"/></svg>YouTube</button>
+        <button class="key app prime" style="--c:#0a8fc7" data-cmd="APP_PRIME">prime video</button>
+        <button class="key app" style="--c:#1db954" data-cmd="APP_SPOTIFY"><svg><use href="#i-spot"/></svg>Spotify</button>
+      </div>
+    </div>
+
+    <div class="media" role="group" aria-label="Contrôles multimédias">
+      <button class="key" data-cmd="REW" aria-label="Retour arrière"><svg><use href="#i-rew"/></svg></button>
+      <button class="key play" data-cmd="PLAY" aria-label="Lecture"><svg><use href="#i-play"/></svg></button>
+      <button class="key" data-cmd="PAUSE" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
+      <button class="key" data-cmd="FF" aria-label="Avance rapide"><svg><use href="#i-ff"/></svg></button>
+    </div>
+
+    <div>
+      <button class="key drawer-toggle" id="numToggle" aria-expanded="false" aria-controls="numDrawer" data-ui="1"><svg><use href="#i-grid"/></svg>Pavé numérique<svg><use href="#i-chev"/></svg></button>
+      <div class="drawer" id="numDrawer">
+        <div>
+          <div class="numpad" style="margin-top:12px">
+            <button class="key" data-cmd="DIGIT_1">1</button>
+            <button class="key" data-cmd="DIGIT_2">2</button>
+            <button class="key" data-cmd="DIGIT_3">3</button>
+            <button class="key" data-cmd="DIGIT_4">4</button>
+            <button class="key" data-cmd="DIGIT_5">5</button>
+            <button class="key" data-cmd="DIGIT_6">6</button>
+            <button class="key" data-cmd="DIGIT_7">7</button>
+            <button class="key" data-cmd="DIGIT_8">8</button>
+            <button class="key" data-cmd="DIGIT_9">9</button>
+            <button class="key" data-cmd="DIGIT_DEL" aria-label="Effacer"><svg><use href="#i-back"/></svg></button>
+            <button class="key" data-cmd="DIGIT_0">0</button>
+            <button class="key" data-cmd="DIGIT_ENTER" style="font-size:13px;letter-spacing:.1em">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<script>
+(() => {
+'use strict';
+
+/* ─── Réglages persistés ───────────────────────────────── */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(_){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
+};
+
+const APPS = {
+  NETFLIX:{name:'NETFLIX',  c1:'#8a0610', c2:'#14070a', c:'#e50914'},
+  YOUTUBE:{name:'YouTube',  c1:'#a31212', c2:'#140606', c:'#ff1a1a'},
+  PRIME:  {name:'prime video', c1:'#0a5f86', c2:'#04111c', c:'#0a8fc7'},
+  SPOTIFY:{name:'Spotify',  c1:'#0f7a3a', c2:'#04140b', c:'#1db954'}
+};
+const APP_KEYS = Object.keys(APPS);
+const CHANNELS = {1:'Watania 1',2:'Watania 2',3:'Hannibal',4:'El Hiwar Ettounsi',5:'Nessma',6:'Attessia',7:'Carthage+',8:'Al Jazeera',9:'France 24',10:'Euronews'};
+
+const S = Object.assign({
+  power:false, vol:18, muted:false, ch:1, input:'TV',
+  mode:'tv', app:null, playing:true, pos:0, sel:0
+}, store.get('remote.state', {}));
+S.power = false; S.mode = 'tv'; S.app = null; S.playing = true; S.pos = 0; S.sel = 0; // toujours repartir de veille
+
+const prefs = { haptic: store.get('remote.haptic', true), sound: store.get('remote.sound', true) };
+
+/* ─── Retour haptique + sonore ─────────────────────────── */
+const canVibrate = typeof navigator.vibrate === 'function';
+const HAPTIC = {
+  default:[12], dpad:[10], OK:[22], POWER:[40,50,40], MUTE:[12,30,24],
+  APP:[8,35,18], VOL:[9], CH:[9], MEDIA:[16], NUM:[7], HOME:[14,25,14], BACK:[14], MENU:[12], INPUT:[10,20,10],
+  repeat:[5]
+};
+const PITCH = { OK:880, POWER:520, MUTE:640, APP:760, VOL:1500, CH:1300, MEDIA:1050, NUM:1700, repeat:1900, default:1300 };
+
+function kindOf(cmd){
+  if(['UP','DOWN','LEFT','RIGHT'].includes(cmd)) return 'dpad';
+  if(cmd.startsWith('VOL_')) return 'VOL';
+  if(cmd.startsWith('CH_')) return 'CH';
+  if(cmd.startsWith('APP_')) return 'APP';
+  if(cmd.startsWith('INPUT_')) return 'INPUT';
+  if(cmd.startsWith('DIGIT_')) return 'NUM';
+  if(['PLAY','PAUSE','FF','REW'].includes(cmd)) return 'MEDIA';
+  return HAPTIC[cmd] ? cmd : 'default';
+}
+
+let actx = null;
+function tick(freq, dur = .022, gain = .06){
+  if(!prefs.sound) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * .55, t + dur);
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + .01);
+  }catch(_){}
+}
+function haptic(kind, isRepeat){
+  const k = isRepeat ? 'repeat' : kind;
+  if(prefs.haptic && canVibrate){ try{ navigator.vibrate(HAPTIC[k] || HAPTIC.default); }catch(_){} }
+  tick(PITCH[k] || PITCH.default, k === 'POWER' ? .09 : .022, isRepeat ? .03 : .06);
+}
+
+/* ─── D-pad SVG ────────────────────────────────────────── */
+(function buildDpad(){
+  const svg = document.getElementById('dpadSvg'), NS = 'http://www.w3.org/2000/svg';
+  const cx = 115, cy = 115, R = 112, r = 50, gap = 2.2;
+  const pt = (rad, deg) => { const a = (deg - 90) * Math.PI / 180; return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)]; };
+  const wedge = (mid) => {
+    const a0 = mid - 45 + gap, a1 = mid + 45 - gap;
+    const [x0,y0] = pt(R,a0), [x1,y1] = pt(R,a1), [x2,y2] = pt(r,a1), [x3,y3] = pt(r,a0);
+    return `M${x0} ${y0}A${R} ${R} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 0 0 ${x3} ${y3}Z`;
+  };
+  [['UP',0,'#i-up','Haut'],['RIGHT',90,'#i-up','Droite'],['DOWN',180,'#i-up','Bas'],['LEFT',270,'#i-up','Gauche']].forEach(([cmd,deg,,label]) => {
+    const g = document.createElementNS(NS,'g');
+    const p = document.createElementNS(NS,'path');
+    p.setAttribute('d', wedge(deg)); p.setAttribute('class','seg'); p.dataset.cmd = cmd;
+    p.setAttribute('role','button'); p.setAttribute('aria-label', label);
+    const [ax, ay] = pt((R + r) / 2 + 2, deg);
+    const a = document.createElementNS(NS,'path');
+    a.setAttribute('d','M0 -9 L11 6 L-11 6Z'); a.setAttribute('class','arrow');
+    a.setAttribute('transform', `translate(${ax} ${ay}) rotate(${deg})`);
+    g.append(p, a); svg.appendChild(g);
+  });
+  const ok = document.createElementNS(NS,'circle');
+  ok.setAttribute('cx',cx); ok.setAttribute('cy',cy); ok.setAttribute('r',r - 8); ok.setAttribute('class','ok'); ok.dataset.cmd = 'OK';
+  ok.setAttribute('role','button'); ok.setAttribute('aria-label','OK');
+  const t = document.createElementNS(NS,'text');
+  t.setAttribute('x',cx); t.setAttribute('y',cy + 5); t.setAttribute('text-anchor','middle'); t.setAttribute('class','oktxt'); t.textContent = 'OK';
+  svg.append(ok, t);
+})();
+
+/* ─── Écran de simulation ──────────────────────────────── */
+const $ = id => document.getElementById(id);
+const tv = $('tv'), content = $('tvContent'), osdTop = $('osdTop'), osdToast = $('osdToast'), osdVol = $('osdVol');
+const timers = {};
+function flash(el, ms = 1600){
+  el.classList.add('show'); clearTimeout(timers[el.id]);
+  timers[el.id] = setTimeout(() => el.classList.remove('show'), ms);
+}
+function toast(msg){ osdToast.textContent = msg; flash(osdToast, 1400); }
+const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const DUR = 3600;
+
+function render(quiet){
+  tv.dataset.mode = S.power ? S.mode : 'off';
+  const bg = (c1, c2) => { tv.style.setProperty('--tvc1', c1); tv.style.setProperty('--tvc2', c2); };
+  if(!S.power){ content.innerHTML = ''; $('statusLine').textContent = 'Veille'; return; }
+  let html = '', top = '';
+  if(S.mode === 'tv'){
+    bg('#1b3a8a', '#050a1c');
+    html = `<div class="big">${S.ch}</div><div class="sub">${CHANNELS[S.ch] || 'Chaîne ' + S.ch}</div>`;
+    top = 'TV · ' + (CHANNELS[S.ch] || 'CH ' + S.ch);
+  } else if(S.mode === 'hdmi'){
+    bg('#2a1b5c', '#07040f');
+    html = `<div class="big" style="font-size:clamp(26px,6vw,46px)">${S.input.replace('HDMI','HDMI ')}</div><div class="sub">Signal détecté</div>`;
+    top = S.input.replace('HDMI','HDMI ');
+  } else if(S.mode === 'home'){
+    bg('#16306b', '#050a1c');
+    html = `<div class="sub" style="margin-bottom:10px">Accueil</div><div class="tiles">` +
+      APP_KEYS.map((k,i) => `<div class="tile ${i === S.sel ? 'sel' : ''}" style="--c:${APPS[k].c}">${APPS[k].name}</div>`).join('') + `</div>`;
+    top = 'ACCUEIL';
+  } else if(S.mode === 'app'){
+    const a = APPS[S.app];
+    bg(a.c1, a.c2);
+    html = `<div class="big" style="font-size:clamp(26px,6vw,46px);font-weight:800">${a.name}</div>
+      <div class="sub">${S.playing ? '▶ Lecture' : '❚❚ Pause'} · ${fmt(S.pos)} / ${fmt(DUR)}</div>
+      <div class="progress" style="--p:${(S.pos / DUR * 100).toFixed(2)}%"><i></i></div>`;
+    top = a.name.toUpperCase();
+  }
+  content.innerHTML = html;
+  osdTop.textContent = top;
+  if(!quiet){ osdTop.classList.add('show'); clearTimeout(timers.top); timers.top = setTimeout(() => osdTop.classList.remove('show'), 2600); }
+  $('statusLine').textContent = S.mode === 'app' ? APPS[S.app].name : S.mode === 'tv' ? `TV · CH ${S.ch}` : S.mode === 'home' ? 'Accueil' : S.input;
+}
+
+function showVol(){
+  const v = S.muted ? 0 : S.vol;
+  $('osdVolBar').style.setProperty('--v', v + '%');
+  $('osdVolNum').textContent = S.muted ? '—' : v;
+  $('osdVolIcon').setAttribute('href', S.muted ? '#i-mute' : '#i-vol');
+  flash(osdVol, 1500);
+  $('muteKey').classList.toggle('on', S.muted);
+}
+
+function syncKeys(){
+  document.querySelectorAll('.inputs .key').forEach(k => {
+    const id = k.dataset.cmd.slice(6);
+    k.classList.toggle('active', S.power && (S.mode === 'tv' ? id === 'TV' : S.mode === 'hdmi' ? id === S.input : false));
+  });
+  document.querySelectorAll('.media .key').forEach(k => k.classList.toggle('active',
+    S.power && S.mode === 'app' && ((k.dataset.cmd === 'PLAY' && S.playing) || (k.dataset.cmd === 'PAUSE' && !S.playing))));
+  $('muteKey').classList.toggle('on', S.muted);
+}
+
+/* ─── Logique des commandes ────────────────────────────── */
+let digits = '', digitTimer = null;
+function commitDigits(){
+  clearTimeout(digitTimer);
+  if(digits){ const n = Math.min(999, parseInt(digits, 10)); if(n > 0){ S.ch = n; S.mode = 'tv'; S.input = 'TV'; } }
+  digits = ''; render();
+}
+const GLYPH = { UP:'▲', DOWN:'▼', LEFT:'◀', RIGHT:'▶', OK:'OK', BACK:'↩ RETOUR', MENU:'☰ MENU' };
+
+function apply(cmd, repeat){
+  if(cmd === 'POWER'){ S.power = !S.power; if(S.power){ S.mode = S.input === 'TV' ? 'tv' : 'hdmi'; } render(); syncKeys(); toast(S.power ? 'ALLUMÉ' : 'VEILLE'); return; }
+  if(!S.power) return;
+
+  if(cmd === 'VOL_UP' || cmd === 'VOL_DOWN'){
+    S.muted = false; S.vol = Math.max(0, Math.min(100, S.vol + (cmd === 'VOL_UP' ? 2 : -2))); showVol();
+  } else if(cmd === 'MUTE'){ S.muted = !S.muted; showVol();
+  } else if(cmd === 'CH_UP' || cmd === 'CH_DOWN'){
+    S.ch = ((S.ch - 1 + (cmd === 'CH_UP' ? 1 : -1) + 999) % 999) + 1; S.mode = 'tv'; S.input = 'TV'; render();
+  } else if(cmd.startsWith('INPUT_')){
+    const id = cmd.slice(6); S.input = id; S.mode = id === 'TV' ? 'tv' : 'hdmi'; S.app = null; render(); toast(id === 'TV' ? 'TV' : id.replace('HDMI','HDMI '));
+  } else if(cmd.startsWith('APP_')){
+    S.app = cmd.slice(4); S.mode = 'app'; S.pos = 0; S.playing = true; render(); toast(APPS[S.app].name);
+  } else if(cmd === 'HOME'){ S.mode = 'home'; S.sel = 0; render();
+  } else if(cmd === 'BACK'){ if(S.mode === 'app' || S.mode === 'home'){ S.mode = S.input === 'TV' ? 'tv' : 'hdmi'; S.app = null; render(); } else toast(GLYPH.BACK);
+  } else if(cmd === 'MENU'){ toast(GLYPH.MENU);
+  } else if(['UP','DOWN','LEFT','RIGHT'].includes(cmd)){
+    if(S.mode === 'home' && (cmd === 'LEFT' || cmd === 'RIGHT')){ S.sel = (S.sel + (cmd === 'RIGHT' ? 1 : -1) + APP_KEYS.length) % APP_KEYS.length; render(); }
+    else toast(GLYPH[cmd]);
+  } else if(cmd === 'OK'){
+    if(S.mode === 'home'){ apply('APP_' + APP_KEYS[S.sel]); return; }
+    toast('OK');
+  } else if(cmd === 'PLAY'){ S.playing = true; if(S.mode === 'app') render(); toast('▶ LECTURE');
+  } else if(cmd === 'PAUSE'){ S.playing = false; if(S.mode === 'app') render(); toast('❚❚ PAUSE');
+  } else if(cmd === 'FF' || cmd === 'REW'){
+    S.pos = Math.max(0, Math.min(DUR, S.pos + (cmd === 'FF' ? 10 : -10))); if(S.mode === 'app') render(); toast(cmd === 'FF' ? '⏩ +10 s' : '⏪ −10 s');
+  } else if(cmd.startsWith('DIGIT_')){
+    const d = cmd.slice(6);
+    if(d === 'DEL') digits = digits.slice(0, -1);
+    else if(d === 'ENTER'){ commitDigits(); return; }
+    else if(digits.length < 3) digits += d;
+    if(!digits && d !== 'DEL') return;
+    toast('CH ' + (digits || '—')); clearTimeout(digitTimer); digitTimer = setTimeout(commitDigits, 1600);
+  }
+  syncKeys();
+}
+
+/* ─── Pont vers un vrai appareil (optionnel) ────────────── */
+function emit(cmd){
+  const detail = { cmd, state: { ...S } };
+  window.dispatchEvent(new CustomEvent('remote:command', { detail }));
+  try{ if(window.RemoteBridge && typeof window.RemoteBridge.send === 'function') window.RemoteBridge.send(cmd, detail.state); }catch(_){}
+}
+
+function fire(cmd, el, isRepeat){
+  haptic(kindOf(cmd), isRepeat);
+  apply(cmd, isRepeat);
+  emit(cmd);
+  S.power !== undefined && store.set('remote.state', { vol:S.vol, muted:S.muted, ch:S.ch, input:S.input });
+}
+
+/* ─── Entrées tactiles / souris : appui + maintien ──────── */
+const REPEAT = new Set(['UP','DOWN','LEFT','RIGHT','VOL_UP','VOL_DOWN','CH_UP','CH_DOWN','FF','REW']);
+const remote = $('remote');
+let hold = null;
+function endHold(){
+  if(!hold) return;
+  clearTimeout(hold.t); clearInterval(hold.i); hold.el.classList.remove('down'); hold = null;
+}
+remote.addEventListener('pointerdown', e => {
+  const el = e.target.closest('[data-cmd]'); if(!el || el.dataset.ui) return;
+  if(e.button > 0) return;
+  e.preventDefault(); endHold();
+  const cmd = el.dataset.cmd;
+  el.classList.add('down');
+  fire(cmd, el, false);
+  hold = { el, t: null, i: null };
+  if(REPEAT.has(cmd)){
+    hold.t = setTimeout(() => { hold.i = setInterval(() => fire(cmd, el, true), 85); }, 380);
+  } else {
+    const h = hold; setTimeout(() => { if(hold === h) endHold(); }, 140);
+  }
+});
+['pointerup','pointercancel','blur'].forEach(ev => window.addEventListener(ev, endHold));
+remote.addEventListener('contextmenu', e => e.preventDefault());
+// Activation clavier (Entrée / Espace sur un bouton focalisé)
+remote.addEventListener('click', e => {
+  if(e.detail !== 0) return;
+  const el = e.target.closest('button[data-cmd]'); if(el && !el.dataset.ui) fire(el.dataset.cmd, el, false);
+});
+
+/* ─── Raccourcis clavier (bureau) ──────────────────────── */
+const KEYMAP = { ArrowUp:'UP', ArrowDown:'DOWN', ArrowLeft:'LEFT', ArrowRight:'RIGHT', Enter:'OK', Escape:'BACK', Backspace:'BACK',
+  '+':'VOL_UP','=':'VOL_UP','-':'VOL_DOWN','m':'MUTE','M':'MUTE','PageUp':'CH_UP','PageDown':'CH_DOWN','h':'HOME','H':'HOME',
+  ' ':'PLAY','p':'PAUSE','P':'PAUSE','f':'FF','r':'REW','F':'FF','R':'REW' };
+window.addEventListener('keydown', e => {
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const onBtn = e.target.closest && e.target.closest('button');
+  if(onBtn && (e.key === 'Enter' || e.key === ' ')) return;
+  let cmd = KEYMAP[e.key];
+  if(/^[0-9]$/.test(e.key)) cmd = 'DIGIT_' + e.key;
+  if(e.key === ' ' && S.mode === 'app') cmd = S.playing ? 'PAUSE' : 'PLAY';
+  if(!cmd) return;
+  e.preventDefault();
+  const el = remote.querySelector(`[data-cmd="${cmd}"]`);
+  if(el){ el.classList.add('down'); setTimeout(() => el.classList.remove('down'), 110); }
+  fire(cmd, el, e.repeat);
+});
+
+/* ─── Tiroir numérique ─────────────────────────────────── */
+$('numToggle').addEventListener('click', () => {
+  const t = $('numToggle'), d = $('numDrawer'), open = t.getAttribute('aria-expanded') !== 'true';
+  t.setAttribute('aria-expanded', open); d.classList.toggle('open', open);
+  haptic('MENU');
+  if(open) setTimeout(() => t.scrollIntoView({ behavior:'smooth', block:'center' }), 150);
+});
+
+/* ─── Interrupteurs vibration / son ────────────────────── */
+function bindSwitch(id, key){
+  const b = $(id); b.setAttribute('aria-pressed', prefs[key]);
+  b.addEventListener('click', () => {
+    prefs[key] = !prefs[key]; b.setAttribute('aria-pressed', prefs[key]); store.set('remote.' + key, prefs[key]);
+    haptic('MENU');
+  });
+}
+bindSwitch('hapticSw', 'haptic'); bindSwitch('soundSw', 'sound');
+$('hapticNote').textContent = canVibrate
+  ? 'Vibration active : chaque appui déclenche un motif haptique propre à la touche (maintenir pour répéter).'
+  : 'Vibration non supportée par ce navigateur (iOS Safari) : retour sonore et visuel actif. Sur Android (Chrome), les retours haptiques sont actifs.';
+
+/* ─── Avancement de lecture ────────────────────────────── */
+setInterval(() => { if(S.power && S.mode === 'app' && S.playing){ S.pos = Math.min(DUR, S.pos + 1); render(true); } }, 1000);
+
+render(); syncKeys(); showVol(); osdVol.classList.remove('show');
+})();
+</script>
+</body>
+</html>
